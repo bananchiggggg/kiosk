@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Киоск Реестра Номеров</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e1b4b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            user-select: none;
+            background-color: #f8fafc;
+        }
+        input {
+            user-select: text;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Исправление для iOS/Android планшетов */
+        .h-screen { height: 100vh; height: calc(var(--vh, 1vh) * 100); }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900 overflow-hidden">
+    <div id="root"></div>
+    <script>
+        // Динамическая высота экрана (фикс для мобильных браузеров)
+        const setVh = () => {
+            let vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+        window.addEventListener('resize', setVh);
+        setVh();
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => {
+                    console.log('SW registration failed: ', err);
+                });
+            });
+        }
+        
+        // Запрет контекстного меню
+        window.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+        
+        // Предотвращение зума
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
