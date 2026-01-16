@@ -25,101 +25,96 @@ const ResultsArea: React.FC<ResultsAreaProps> = ({ status, results, errorMessage
 
   if (status === 'IDLE') {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-10 text-slate-300">
-        <div className="w-24 h-24 mb-6 opacity-20 bg-slate-200 rounded-full flex items-center justify-center">
-          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      <div className="h-full flex flex-col items-center justify-center p-12 text-slate-400">
+        <div className="w-40 h-40 mb-10 opacity-10 bg-indigo-900 rounded-[3rem] flex items-center justify-center">
+          <svg className="w-20 h-20 text-indigo-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-5.09 4.83-9.063 10-9.063 5.17 0 9.36 3.973 10 9.063" />
           </svg>
         </div>
-        <p className="text-sm font-black uppercase tracking-[0.3em] opacity-40">Ожидание ввода номера</p>
-      </div>
-    );
-  }
-
-  if (status === 'LOADING') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center space-y-6">
-        <div className="relative">
-          <div className="w-20 h-20 border-8 border-indigo-100 rounded-full"></div>
-          <div className="absolute top-0 left-0 w-20 h-20 border-8 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <p className="text-indigo-900 font-black uppercase text-sm tracking-widest animate-pulse">Идет поиск в базе...</p>
+        <p className="text-lg font-black uppercase tracking-[0.4em] opacity-30">Режим ожидания</p>
+        <p className="text-sm font-bold opacity-20 mt-4 uppercase tracking-widest text-center">Система готова к сканированию госномеров</p>
       </div>
     );
   }
 
   if (status === 'NOT_FOUND') {
     return (
-      <div className="m-6 p-10 bg-white border-[8px] border-red-500 rounded-[3rem] text-center shadow-2xl animate-[shake_0.5s_ease-in-out]">
-        <div className="text-red-500 text-8xl font-black mb-4">✕</div>
-        <h3 className="text-4xl font-black text-red-900 uppercase mb-2">НЕ НАЙДЕНО</h3>
-        <p className="text-xl text-red-700 font-bold">Транспортное средство отсутствует в реестре</p>
+      <div className="m-6 p-12 bg-white border-[12px] border-rose-500 rounded-[4rem] text-center shadow-[0_20px_60px_rgba(244,63,94,0.3)] animate-shake">
+        <div className="w-32 h-32 bg-rose-500 text-white rounded-full flex items-center justify-center mx-auto mb-8 text-6xl font-black">✕</div>
+        <h3 className="text-5xl md:text-7xl font-black text-rose-950 uppercase mb-4">Отказ</h3>
+        <p className="text-2xl md:text-3xl text-rose-700 font-bold uppercase tracking-tight">Транспортное средство отсутствует в реестре</p>
+        <div className="mt-10 pt-8 border-t-4 border-rose-50 text-rose-400 font-black text-sm uppercase tracking-widest">
+          Рекомендуется повторный ввод или проверка документов
+        </div>
       </div>
     );
   }
 
   if (status === 'ERROR') {
     return (
-      <div className="m-6 p-10 bg-amber-50 border-4 border-amber-200 rounded-[2rem] shadow-lg">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="text-5xl">⚠️</div>
-          <h3 className="text-2xl font-black text-amber-900 uppercase">Ошибка системы</h3>
+      <div className="m-6 p-10 bg-amber-50 border-[6px] border-amber-200 rounded-[3rem] shadow-xl">
+        <div className="flex items-center gap-6 mb-8">
+          <div className="text-6xl">⚠️</div>
+          <h3 className="text-3xl font-black text-amber-900 uppercase">Сбой системы</h3>
         </div>
-        <div className="bg-white p-6 rounded-2xl border-2 border-amber-100 text-amber-800 font-bold mb-6">
-          {errorMessage || 'Неизвестная сетевая ошибка'}
+        <div className="bg-white p-8 rounded-3xl border-2 border-amber-100 text-amber-900 font-bold text-xl mb-8 shadow-inner">
+          {errorMessage || 'Ошибка подключения к базе данных'}
         </div>
-        <div className="space-y-4 text-sm text-amber-700 font-medium">
-          <p className="flex items-start gap-2">
-            <span className="text-amber-500 font-black">1.</span>
-            Проверьте настройки Google Apps Script: должно быть <strong>Access: Anyone</strong>.
-          </p>
-          <p className="flex items-start gap-2">
-            <span className="text-amber-500 font-black">2.</span>
-            Убедитесь, что планшет подключен к интернету.
-          </p>
-          <p className="flex items-start gap-2">
-            <span className="text-amber-500 font-black">3.</span>
-            Перезапустите приложение (обновите страницу).
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-amber-800 font-bold">
+          <div className="bg-amber-100/50 p-4 rounded-2xl flex items-center gap-3">
+            <span className="bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+            Проверьте Wi-Fi соединение
+          </div>
+          <div className="bg-amber-100/50 p-4 rounded-2xl flex items-center gap-3">
+            <span className="bg-amber-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+            Свяжитесь с IT-отделом
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-8">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto w-full space-y-10">
       {results.map((record, index) => (
-        <div key={index} className="bg-white rounded-[2.5rem] shadow-2xl border-2 border-emerald-100 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
-          <div className="bg-emerald-600 px-8 py-5 flex justify-between items-center text-white">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white/20 p-2.5 rounded-xl">
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+        <div key={index} className="bg-white rounded-[3.5rem] shadow-2xl border-[1px] border-emerald-200 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-emerald-600 px-10 py-8 flex justify-between items-center text-white shadow-lg">
+            <div className="flex items-center space-x-6">
+              <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md">
+                <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
               </div>
-              <h4 className="text-2xl font-black uppercase tracking-tight">Допуск подтвержден</h4>
+              <div>
+                <h4 className="text-3xl md:text-5xl font-black uppercase tracking-tight">Допуск разрешен</h4>
+                <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mt-1">Запись верифицирована в реестре</p>
+              </div>
             </div>
-            <span className="hidden sm:inline-block text-[10px] font-black bg-white/20 px-4 py-1.5 rounded-full uppercase tracking-widest">Лист: {String(record._sheet || 'Основной')}</span>
+            <div className="text-right">
+              <span className="text-[12px] font-black bg-emerald-800/40 px-6 py-2 rounded-full uppercase tracking-widest backdrop-blur-sm border border-emerald-400/30">
+                {String(record._sheet || 'Основной')}
+              </span>
+            </div>
           </div>
           
-          <div className="p-8 md:p-12 space-y-10">
-            <div className="bg-indigo-50 p-8 rounded-[2rem] border-2 border-indigo-100 flex items-start space-x-6 relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-5">
-                 <svg className="w-24 h-24 text-indigo-900" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+          <div className="p-10 md:p-14 space-y-12">
+            <div className="bg-indigo-50 p-10 rounded-[2.5rem] border-[4px] border-indigo-100 flex items-start space-x-8 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
+                 <svg className="w-40 h-40 text-indigo-900" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
                </div>
-               <div className="text-5xl mt-1 shrink-0">🤖</div>
-               <div className="relative z-10">
-                 <p className="text-xs font-black text-indigo-400 uppercase mb-2 tracking-widest">Рекомендация ИИ</p>
-                 <p className="text-2xl md:text-3xl text-indigo-950 font-black leading-tight italic">
-                   «{aiInsights[index] || 'Анализируем запись...'}»
+               <div className="text-6xl md:text-7xl shrink-0 mt-2">🛡️</div>
+               <div className="relative z-10 flex-1">
+                 <p className="text-xs font-black text-indigo-500 uppercase mb-3 tracking-[0.3em]">Инструкция службы безопасности</p>
+                 <p className="text-3xl md:text-4xl text-indigo-950 font-black leading-[1.15] italic">
+                   «{aiInsights[index] || 'Формирование вердикта...'}»
                  </p>
                </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-20 gap-y-10">
               {Object.entries(record).map(([key, value]) => (
                 !key.startsWith('_') && (
-                  <div key={key} className="border-b-2 border-slate-100 pb-4 flex justify-between items-end">
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider">{key}</span>
-                    <span className="text-xl md:text-2xl text-indigo-900 font-black text-right">{String(value)}</span>
+                  <div key={key} className="border-b-[3px] border-slate-100 pb-5 flex justify-between items-end hover:border-indigo-200 transition-colors">
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{key}</span>
+                    <span className="text-2xl md:text-3xl text-indigo-900 font-black text-right tracking-tight">{String(value)}</span>
                   </div>
                 )
               ))}
@@ -127,7 +122,7 @@ const ResultsArea: React.FC<ResultsAreaProps> = ({ status, results, errorMessage
           </div>
         </div>
       ))}
-      <div className="h-20"></div>
+      <div className="h-24"></div>
     </div>
   );
 };

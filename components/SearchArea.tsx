@@ -1,5 +1,5 @@
 
-import React, { useState, KeyboardEvent, useMemo } from 'react';
+import React, { useState, KeyboardEvent, useMemo, useEffect, useRef } from 'react';
 import { isValidPlate } from '../utils/normalize';
 
 interface SearchAreaProps {
@@ -10,71 +10,72 @@ interface SearchAreaProps {
 
 const SearchArea: React.FC<SearchAreaProps> = ({ onSearch, onClear, isLoading }) => {
   const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const isValid = useMemo(() => isValidPlate(inputValue), [inputValue]);
+  const validation = useMemo(() => isValidPlate(inputValue), [inputValue]);
   const hasInput = inputValue.trim().length > 0;
 
   const handleSearch = () => {
-    if (isValid && !isLoading) {
+    if (validation.valid && !isLoading) {
       onSearch(inputValue);
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleSearch();
-  };
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [isLoading]);
 
   return (
-    <div className="bg-white border-b-4 border-indigo-100/50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-4">
-        <div className="flex justify-between items-center text-[clamp(10px,1.5vw,14px)] font-black uppercase tracking-widest px-2 transition-colors duration-300">
-          <span className={!isValid && hasInput ? 'text-rose-500 animate-pulse' : 'text-indigo-400'}>
-            {!isValid && hasInput ? '⚠ Некорректный формат' : 'Введите номер'}
-          </span>
-          <span className="opacity-40 italic text-slate-400">Пример: Т333УО 196</span>
+    <div className="bg-white border-b-[12px] border-indigo-50 p-6 md:p-10 shadow-2xl relative z-10">
+      <div className="max-w-5xl mx-auto space-y-8">
+        <div className="flex justify-between items-end px-4">
+          <label className={`text-sm font-black uppercase tracking-[0.2em] transition-colors duration-300 ${!validation.valid && hasInput ? 'text-rose-600' : 'text-indigo-400'}`}>
+            {!validation.valid && hasInput ? (validation.error || '⚠ ОШИБКА') : 'Госномер автомобиля'}
+          </label>
+          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">РУ | СНГ | ЕВРО</span>
         </div>
         
         <div className="relative group">
           <input
+            ref={inputRef}
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="A000AA 000"
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="A 000 AA 00"
             disabled={isLoading}
             autoComplete="off"
-            className={`w-full font-mono font-black text-center uppercase tracking-tighter transition-all duration-300 outline-none rounded-3xl border-4 md:border-[6px]
-              text-[clamp(2rem,12vw,7rem)] py-3 md:py-6 px-4
+            className={`w-full font-black text-center uppercase tracking-tighter transition-all duration-300 outline-none rounded-[2.5rem] border-[8px]
+              license-plate-font text-[clamp(2.5rem,15vw,9rem)] py-6 md:py-10 px-6
               ${isLoading 
-                ? 'bg-slate-50 border-indigo-100 text-indigo-200 cursor-not-allowed' 
-                : !isValid && hasInput
-                  ? 'bg-rose-50/30 border-rose-300 focus:border-rose-500 text-rose-950 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
-                  : isValid && hasInput
-                    ? 'bg-emerald-50/30 border-emerald-400 focus:border-emerald-600 text-indigo-950'
-                    : 'bg-indigo-50/30 border-slate-200 focus:border-indigo-600 focus:bg-white text-indigo-950 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]'
+                ? 'bg-slate-50 border-indigo-100 text-indigo-200' 
+                : !validation.valid && hasInput
+                  ? 'bg-rose-50 border-rose-400 text-rose-950 animate-shake'
+                  : validation.valid && hasInput
+                    ? 'bg-emerald-50 border-emerald-500 text-indigo-950 shadow-[0_15px_40px_rgba(16,185,129,0.15)]'
+                    : 'bg-white border-indigo-100 focus:border-indigo-600 text-indigo-950'
               }`}
-            autoFocus
           />
         </div>
         
-        <div className="grid grid-cols-3 gap-3 md:gap-6">
+        <div className="grid grid-cols-4 gap-6 md:gap-10">
           <button
             onClick={() => { setInputValue(''); onClear(); }}
             disabled={isLoading || !inputValue}
-            className="col-span-1 py-4 md:py-8 bg-slate-100 text-slate-500 text-sm md:text-xl font-black rounded-2xl active:scale-95 transition-all uppercase disabled:opacity-30 border-b-4 border-slate-200"
+            className="col-span-1 h-24 md:h-36 bg-slate-100 text-slate-500 text-xl font-black rounded-[2.5rem] active:scale-90 transition-all uppercase border-b-[8px] border-slate-300 shadow-lg disabled:opacity-20"
           >
-            Сброс
+            СБРОС
           </button>
           <button
             onClick={handleSearch}
-            disabled={isLoading || !isValid}
-            className={`col-span-2 py-4 md:py-8 text-white text-sm md:text-xl font-black rounded-2xl transition-all uppercase tracking-[0.2em] shadow-xl active:scale-[0.98] border-b-4
-              ${isLoading || !isValid 
-                ? 'bg-slate-300 border-slate-400 cursor-not-allowed' 
-                : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 shadow-indigo-200'
+            disabled={isLoading || !validation.valid}
+            className={`col-span-3 h-24 md:h-36 text-white text-2xl md:text-3xl font-black rounded-[2.5rem] transition-all uppercase tracking-[0.3em] active:scale-[0.97] border-b-[8px]
+              ${isLoading || !validation.valid 
+                ? 'bg-slate-200 border-slate-300 text-slate-400' 
+                : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-900 shadow-[0_20px_50px_rgba(79,70,229,0.4)]'
               }`}
           >
-            {isLoading ? 'Проверка...' : 'Найти в реестре'}
+            {isLoading ? 'ИЩЕМ...' : 'ПРОВЕРИТЬ'}
           </button>
         </div>
       </div>

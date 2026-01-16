@@ -2,60 +2,44 @@
 import { ApiResponse, VehicleRecord } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
-// ИСПОЛЬЗУЕМ АКТУАЛЬНЫЙ URL ИЗ ПОСЛЕДНЕГО СООБЩЕНИЯ
 const API_URL: string = 'https://script.google.com/macros/s/AKfycbxso3bNKQrVsvYhBXYBSJaPtNmYEEHUN7IxuUyi234zbNj9RTmoIrlC06NH5uMegn22BA/exec'; 
-const SHEETS_API_KEY: string = '12345'; 
+const APP_TOKEN: string = '12345'; // Pre-shared application secret
 
-export const fetchRecords = async (plate: string): Promise<ApiResponse> => {
+export const fetchRecords = async (plate: string, deviceId: string): Promise<ApiResponse> => {
   if (!navigator.onLine) {
-    throw new Error('ОТСУТСТВУЕТ ИНТЕРНЕТ: Проверьте Wi-Fi или мобильные данные.');
+    throw new Error('ОТСУТСТВУЕТ ИНТЕРНЕТ');
   }
 
-  // Для Google Apps Script максимально простой fetch работает лучше всего
-  // Опция redirect: 'follow' включена по умолчанию в большинстве браузеров
-  const fetchUrl = `${API_URL}?plate=${encodeURIComponent(plate.trim())}&apiKey=${encodeURIComponent(SHEETS_API_KEY)}&t=${Date.now()}`;
+  const fetchUrl = `${API_URL}?plate=${encodeURIComponent(plate)}&token=${encodeURIComponent(APP_TOKEN)}&deviceId=${encodeURIComponent(deviceId)}&t=${Date.now()}`;
   
   try {
     const response = await fetch(fetchUrl);
-
-    if (!response.ok) {
-      throw new Error(`Ошибка HTTP: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    return await response.json();
   } catch (error: any) {
-    console.error('Network details:', error);
-    
-    // "Failed to fetch" - специфичная ошибка CORS или отсутствия доступа
-    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
-      throw new Error('ОШИБКА ДОСТУПА: Скрипт заблокирован или не опубликован для "Anyone". В настройках Apps Script выберите "Deploy as Web App" -> "Access: Anyone".');
-    }
-    
-    throw error;
+    throw new Error('СЕТЕВАЯ ОШИБКА: Сервер недоступен');
   }
 };
 
 export const getAiInsight = async (record: VehicleRecord): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const recordString = Object.entries(record)
-      .filter(([key]) => !key.startsWith('_'))
-      .map(([key, value]) => `${key}: ${value}`)
+    const context = Object.entries(record)
+      .filter(([k]) => !k.startsWith('_'))
+      .map(([k, v]) => `${k}: ${v}`)
       .join(', ');
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Запись реестра: ${recordString}. Дай краткий (до 10 слов) вердикт для охраны: можно ли впускать и кто это.`,
+      contents: `Vehicle Data: ${context}. Determine if access should be granted and write a 5-word directive in Russian for a security guard.`,
       config: {
-        systemInstruction: "Ты ассистент службы безопасности. Отвечай строго, профессионально и только по делу на русском языке.",
+        systemInstruction: "You are a professional security command AI. You output only direct, concise instructions in Russian. Example: 'Пропуск разрешен. Сотрудник склада.'",
         temperature: 0.1,
       }
     });
 
-    return response.text || 'Проверка пройдена. Доступ разрешен.';
+    return response.text?.trim() || 'Допуск разрешен.';
   } catch (e) {
-    console.warn('Gemini Insight error:', e);
-    return 'Данные подтверждены в официальном реестре.';
+    return 'Запись найдена. Проверьте документы.';
   }
 };

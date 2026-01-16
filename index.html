@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Киоск Реестра Номеров</title>
+    <title>Контроль Доступа | Киоск Реестра</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1e1b4b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -19,20 +19,31 @@
             touch-action: manipulation;
             user-select: none;
             background-color: #f8fafc;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
         }
         input {
             user-select: text;
         }
+        .license-plate-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
         }
+        .animate-shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        /* Custom scrollbar hiding */
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Исправление для iOS/Android планшетов */
-        .h-screen { height: 100vh; height: calc(var(--vh, 1vh) * 100); }
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
     </style>
 <script type="importmap">
 {
@@ -45,10 +56,10 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900 overflow-hidden">
+<body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
     <script>
-        // Динамическая высота экрана (фикс для мобильных браузеров)
+        // Fullscreen locking for Android tablets
         const setVh = () => {
             let vh = window.innerHeight * 0.01;
             document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -64,11 +75,10 @@
             });
         }
         
-        // Запрет контекстного меню
-        window.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
-        
-        // Предотвращение зума
+        // Kiosk protections
+        window.oncontextmenu = (e) => { e.preventDefault(); return false; };
         document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('dblclick', (e) => e.preventDefault());
     </script>
 </body>
 </html>
