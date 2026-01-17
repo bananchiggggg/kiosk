@@ -1,28 +1,42 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, AppStatus } from './types';
+import { AppState } from './types';
 import { fetchRecords } from './services/api';
 import SearchArea from './components/SearchArea';
 import ResultsArea from './components/ResultsArea';
 
-const IDLE_TIMEOUT = 120000; // 2 minutes for high security auto-reset
+const IDLE_TIMEOUT = 120000;
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>({
-    status: 'IDLE',
-    results: [],
-  });
-  
+  const [state, setState] = useState<AppState>({ status: 'IDLE', results: [] });
   const [deviceId, setDeviceId] = useState<string>('');
+  const [isCompact, setIsCompact] = useState(false);
+  const [isWide, setIsWide] = useState(false);
   const idleTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let id = localStorage.getItem('kiosk_device_id');
-    if (!id) {
-      id = 'dev-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now();
-      localStorage.setItem('kiosk_device_id', id);
-    }
+    // 1. Device ID initialization
+    let id = localStorage.getItem('kiosk_id') || `TAB-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    localStorage.setItem('kiosk_id', id);
     setDeviceId(id);
+
+    // 2. No-Scroll Assertion & Responsive Logic
+    const handleResize = () => {
+      const height = window.innerHeight;
+      const width = window.innerWidth;
+      
+      setIsCompact(height <= 700);
+      setIsWide(width >= 840);
+
+      // Dev Assertion: Fail if scrollable
+      if (document.documentElement.scrollHeight > height + 1) {
+        console.error(`UI OVERFLOW DETECTED: ${document.documentElement.scrollHeight} > ${height}`);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const resetIdleTimer = useCallback(() => {
@@ -33,24 +47,17 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (plate: string) => {
     resetIdleTimer();
     setState({ status: 'LOADING', results: [] });
-
     try {
       const data = await fetchRecords(plate, deviceId);
       if (data.error) {
-        if (data.code === 'UNAUTHORIZED') setState({ status: 'UNAUTHORIZED', results: [] });
-        else if (data.code === 'RATE_LIMIT') setState({ status: 'ERROR', results: [], errorMessage: 'Превышен лимит запросов. Подождите.' });
-        else throw new Error(data.error);
-      } else if (data.results && data.results.length > 0) {
+        setState({ status: 'ERROR', results: [], errorMessage: data.error });
+      } else if (data.results?.length) {
         setState({ status: 'SUCCESS', results: data.results });
       } else {
         setState({ status: 'NOT_FOUND', results: [] });
       }
-    } catch (error: any) {
-      setState({ 
-        status: 'ERROR', 
-        results: [], 
-        errorMessage: error.message || 'Сбой соединения' 
-      });
+    } catch (e: any) {
+      setState({ status: 'ERROR', results: [], errorMessage: e.message });
     }
   }, [deviceId, resetIdleTimer]);
 
@@ -58,64 +65,50 @@ const App: React.FC = () => {
     setState({ status: 'IDLE', results: [] });
   }, []);
 
-  useEffect(() => {
-    const events = ['mousedown', 'touchstart', 'keypress'];
-    events.forEach(evt => document.addEventListener(evt, resetIdleTimer));
-    return () => {
-      events.forEach(evt => document.removeEventListener(evt, resetIdleTimer));
-      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-    };
-  }, [resetIdleTimer]);
-
   return (
-    <div className="flex flex-col h-[100dvh] w-full bg-slate-100 overflow-hidden font-sans select-none">
+    <div className={`flex flex-col h-full w-full bg-slate-100 overflow-hidden text-slate-900 transition-all ${isCompact ? 'compact-mode' : ''}`}>
       {/* HEADER */}
-      <header className="shrink-0 bg-indigo-950 text-white p-4 md:p-6 flex justify-between items-center shadow-2xl z-30">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-inner">
-            <svg className="w-8 h-8 text-indigo-900" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-              <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7h1.064l1.835 4.647A.5.5 0 0116.434 12H14V7z" />
-            </svg>
+      <header className={`shrink-0 flex items-center justify-between px-6 bg-slate-900 text-white shadow-xl z-50 ${isCompact ? 'h-12' : 'h-16 md:h-20'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`${isCompact ? 'w-8 h-8' : 'w-10 h-10'} bg-indigo-500 rounded-lg flex items-center justify-center`}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight leading-none">Контроль Доступа</h1>
-            <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-1">Охрана | Реестр ПТС</p>
+            <h1 className={`${isCompact ? 'text-xs' : 'text-sm md:text-lg'} font-black uppercase tracking-tight`}>КПП РЕЕСТР</h1>
+            {!isCompact && <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{deviceId}</p>}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xl font-mono font-bold">
+          <div className={`${isCompact ? 'text-xs' : 'text-lg'} font-black font-mono`}>
             {new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-          <div className="text-[10px] uppercase font-black text-indigo-500">
-            {deviceId.split('-')[0].toUpperCase()} - SECURE
           </div>
         </div>
       </header>
 
-      <section className="shrink-0 z-20 shadow-lg">
-        <SearchArea 
-          onSearch={handleSearch} 
-          onClear={handleClear} 
-          isLoading={state.status === 'LOADING'} 
-        />
-      </section>
+      {/* MAIN VIEWPORT */}
+      <main className={`flex-1 min-h-0 flex ${isWide ? 'flex-row' : 'flex-col'} overflow-hidden`}>
+        {/* INPUT PANEL */}
+        <section className={`shrink-0 flex flex-col justify-center bg-white p-6 md:p-8 z-10 border-slate-200 
+          ${isWide ? 'w-[380px] xl:w-[440px] border-r' : 'w-full border-b'}`}>
+          <SearchArea onSearch={handleSearch} onClear={handleClear} isLoading={state.status === 'LOADING'} isCompact={isCompact} />
+        </section>
 
-      <main className="flex-1 min-h-0 overflow-y-auto bg-slate-50/50">
-        <ResultsArea 
-          status={state.status} 
-          results={state.results} 
-          errorMessage={state.errorMessage} 
-        />
+        {/* RESULT PANEL */}
+        <section className="flex-1 min-h-0 bg-slate-50 relative overflow-hidden">
+          <ResultsArea status={state.status} results={state.results} errorMessage={state.errorMessage} />
+        </section>
       </main>
 
-      <footer className="shrink-0 bg-white border-t border-slate-200 py-3 px-6 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-        <div className="flex items-center gap-2">
-          <div className={`w-2.5 h-2.5 rounded-full ${navigator.onLine ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`}></div>
-          {navigator.onLine ? 'Система активна' : 'Сбой связи'}
-        </div>
-        <span className="opacity-50">Kiosk v3.1 | {deviceId.slice(-6)}</span>
-      </footer>
+      {/* FOOTER */}
+      {!isCompact && (
+        <footer className="shrink-0 h-8 bg-white border-t border-slate-200 px-6 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${navigator.onLine ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+            {navigator.onLine ? 'Система в сети' : 'Офлайн режим'}
+          </div>
+          <div>Strict No-Scroll UI</div>
+        </footer>
+      )}
     </div>
   );
 };

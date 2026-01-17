@@ -1,5 +1,8 @@
 
 export interface VehicleRecord {
+  "Гос. номер": string;
+  "Марка/модель": string;
+  "Владелец": string;
   [key: string]: string | number;
 }
 

@@ -1,0 +1,14 @@
+
+{
+  "matrix": [
+    {"width": 360, "height": 800, "label": "Android Small"},
+    {"width": 390, "height": 844, "label": "iPhone 14"},
+    {"width": 412, "height": 915, "label": "S20 Ultra"},
+    {"width": 768, "height": 1024, "label": "iPad Mini"},
+    {"width": 800, "height": 1280, "label": "Android Tablet P"},
+    {"width": 1280, "height": 800, "label": "Android Tablet L"},
+    {"width": 1024, "height": 1366, "label": "iPad Pro P"},
+    {"width": 1366, "height": 1024, "label": "iPad Pro L"},
+    {"width": 1920, "height": 1080, "label": "Full HD Kiosk"}
+  ]
+}

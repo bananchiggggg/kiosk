@@ -1,58 +1,76 @@
 
 /**
- * SECURE VEHICLE REGISTRY API v3.0
+ * PRODUCTION VEHICLE REGISTRY API v3.6
+ * Deployment: Execute as Me, Access: Anyone
  */
 
 function doGet(e) {
+  const cache = CacheService.getScriptCache();
+  const props = PropertiesService.getScriptProperties();
+  
   try {
-    const props = PropertiesService.getScriptProperties();
-    const spreadsheetId = props.getProperty('SPREADSHEET_ID') || "1-ra-7n7R9siWg7SCQiDq7-lRPwZ8JhskLc0WXy7VpaE";
-    const appToken = props.getProperty('APP_TOKEN') || "12345";
-    const allowedFieldsStr = props.getProperty('ALLOWED_FIELDS') || "Гос.номер,Марка,Модель,Организация";
-    const allowedFields = allowedFieldsStr.split(',').map(f => f.trim().toLowerCase());
+    // 1. Config Loading with safer defaults
+    const CONFIG = {
+      SPREADSHEET_ID: props.getProperty('SPREADSHEET_ID') || "1-ra-7n7R9siWg7SCQiDq7-lRPwZ8JhskLc0WXy7VpaE",
+      APP_TOKEN: props.getProperty('APP_TOKEN') || "12345",
+      ALLOWED_FIELDS: (props.getProperty('ALLOWED_FIELDS') || "Гос.номер,Марка,Модель,Организация,Статус,ФИО").split(',').map(f => f.trim().toLowerCase()),
+      RATE_LIMIT: parseInt(props.getProperty('RATE_LIMIT_PER_MINUTE') || "30"),
+      WINDOW: parseInt(props.getProperty('RATE_LIMIT_WINDOW_SECONDS') || "60"),
+      SHEET_NAME: props.getProperty('DATA_SHEET_NAME')
+    };
 
-    if (!e || !e.parameter) return createJsonResponse({ status: "online", msg: "Kiosk Endpoint Ready" });
+    if (!e || !e.parameter) return createJsonResponse({ status: "online", msg: "Kiosk Endpoint Ready v3.6" });
 
-    // 1. Security check
-    if (e.parameter.token !== appToken) {
-      logLookup(null, e.parameter.deviceId, e.parameter.plate, "UNAUTHORIZED");
-      return createJsonResponse({ error: "Unauthorized access", code: 'UNAUTHORIZED' });
+    const { plate: plateRaw = '', token, deviceId = 'unknown' } = e.parameter;
+
+    // 2. Security Check (Token Validation)
+    if (token !== CONFIG.APP_TOKEN) {
+      logLookup(null, deviceId, plateRaw, "UNAUTHORIZED");
+      return createJsonResponse({ error: "Ошибка авторизации: Неверный токен приложения.", code: 'UNAUTHORIZED' });
     }
 
-    const deviceId = e.parameter.deviceId || 'unknown';
-    const plateRaw = (e.parameter.plate || '').trim();
-    const plateNorm = ultraNormalize(plateRaw);
-
-    // 2. Rate limiting (30 requests/min per device)
-    const cache = CacheService.getScriptCache();
+    // 3. Block check & Rate Limiting
+    const blockKey = 'block:' + deviceId;
     const rlKey = 'rl:' + deviceId;
-    let count = parseInt(cache.get(rlKey) || '0');
-    if (count > 30) {
-      logLookup(null, deviceId, plateRaw, "RATE_LIMIT");
-      return createJsonResponse({ error: "Too many requests", code: 'RATE_LIMIT' });
-    }
-    cache.put(rlKey, (count + 1).toString(), 60);
+    const nfKey = 'nf:' + deviceId;
 
-    // 3. Simple input validation on server
+    if (cache.get(blockKey)) {
+      return createJsonResponse({ error: "Доступ временно заблокирован из-за подозрительной активности.", code: 'RATE_LIMIT' });
+    }
+
+    let reqCount = parseInt(cache.get(rlKey) || '0');
+    if (reqCount >= CONFIG.RATE_LIMIT) {
+      return createJsonResponse({ error: "Слишком много запросов. Подождите минуту.", code: 'RATE_LIMIT' });
+    }
+    cache.put(rlKey, (reqCount + 1).toString(), CONFIG.WINDOW);
+
+    // 4. Normalization
+    const plateNorm = ultraNormalize(plateRaw);
     if (!plateNorm || plateNorm.length < 3) {
-      return createJsonResponse({ results: [], error: "Invalid Plate Format", code: 'INVALID_INPUT' });
+      return createJsonResponse({ error: "Введите корректный госномер (минимум 3 символа).", code: 'INVALID_INPUT' });
     }
 
-    // 4. Spreadsheet logic
-    const ss = SpreadsheetApp.openById(spreadsheetId);
-    const sheet = ss.getSheets()[0];
+    // 5. Database Access check
+    let ss;
+    try {
+      ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    } catch (e) {
+      return createJsonResponse({ error: "База данных недоступна. Проверьте SPREADSHEET_ID.", code: 'CONFIG_ERROR' });
+    }
+    
+    const sheet = CONFIG.SHEET_NAME ? ss.getSheetByName(CONFIG.SHEET_NAME) : ss.getSheets()[0];
     const data = sheet.getDataRange().getValues();
-    if (data.length < 1) return createJsonResponse({ results: [] });
 
-    // 5. Header detection (scan top 10 rows)
+    // 6. Enhanced Header Detection
     let headerRowIndex = -1;
     let plateColIndex = -1;
-    const plateKeywords = ["гос.номер", "гос номер", "госномер", "грз", "номер", "plate", "license"];
+    const keywords = ["гос.номер", "гос номер", "госномер", "грз", "номер", "plate", "license", "авто", "тс"];
 
-    for (let r = 0; r < Math.min(data.length, 10); r++) {
+    for (let r = 0; r < Math.min(data.length, 15); r++) {
       for (let c = 0; c < data[r].length; c++) {
-        const val = String(data[r][c] || '').toLowerCase();
-        if (plateKeywords.includes(val)) {
+        const cellValue = String(data[r][c] || '').toLowerCase().trim().replace(/[\.\s]/g, '');
+        // Check if normalized keyword exists in cell
+        if (keywords.some(k => cellValue.includes(k.replace(/[\.\s]/g, '')))) {
           headerRowIndex = r;
           plateColIndex = c;
           break;
@@ -61,54 +79,73 @@ function doGet(e) {
       if (headerRowIndex !== -1) break;
     }
 
-    if (headerRowIndex === -1) return createJsonResponse({ error: "Database structure error (No header found)" });
+    if (headerRowIndex === -1) {
+      return createJsonResponse({ error: "Не удалось найти колонку с госномерами. Проверьте заголовки в таблице.", code: 'CONFIG_ERROR' });
+    }
 
     const headers = data[headerRowIndex];
     const results = [];
 
-    // 6. Search
+    // 7. Data Search
     for (let i = headerRowIndex + 1; i < data.length; i++) {
       const row = data[i];
-      const sheetPlate = ultraNormalize(String(row[plateColIndex] || ''));
+      const sheetVal = ultraNormalize(String(row[plateColIndex] || ''));
       
-      if (sheetPlate === plateNorm) {
-        const entry = { "_sheet": sheet.getName() };
+      if (sheetVal === plateNorm) {
+        const record = { "_sheet": sheet.getName() };
         headers.forEach((h, idx) => {
-          const key = String(h).trim();
-          if (allowedFields.includes(key.toLowerCase())) {
+          const originalKey = String(h).trim();
+          const cleanKey = originalKey.toLowerCase();
+          
+          // Include if allowed OR if it's the plate column itself
+          if (CONFIG.ALLOWED_FIELDS.includes(cleanKey) || idx === plateColIndex) {
             let val = row[idx];
-            if (val instanceof Date) val = Utilities.formatDate(val, "GMT+3", "dd.MM.yyyy HH:mm");
-            entry[key] = val;
+            if (val instanceof Date) val = Utilities.formatDate(val, "GMT+3", "dd.MM.yyyy");
+            record[originalKey] = val;
           }
         });
-        results.push(entry);
+        results.push(record);
       }
     }
 
-    logLookup(ss, deviceId, plateRaw, results.length > 0 ? "OK" : "NOT_FOUND", results.length);
-    return createJsonResponse({ results: results, resultCount: results.length });
+    // 8. Finalize Response
+    if (results.length === 0) {
+      let nfCount = parseInt(cache.get(nfKey) || '0') + 1;
+      if (nfCount >= 20) cache.put(blockKey, '1', 300);
+      else cache.put(nfKey, nfCount.toString(), CONFIG.WINDOW);
+      logLookup(ss, deviceId, plateRaw, "NOT_FOUND");
+    } else {
+      cache.remove(nfKey);
+      logLookup(ss, deviceId, plateRaw, "OK", results.length);
+    }
+
+    return createJsonResponse({ results, resultCount: results.length });
 
   } catch (err) {
     console.error(err);
-    return createJsonResponse({ error: "Server error", code: 'SERVER_ERROR' });
+    return createJsonResponse({ error: "Внутренняя ошибка сервера: " + err.message, code: 'SERVER_ERROR' });
   }
 }
 
 function ultraNormalize(text) {
   if (!text) return '';
-  const mapping = {'А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','У':'Y','Х':'X'};
-  return String(text).toUpperCase().replace(/[^A-ZА-Я0-9]/g, '').split('').map(c => mapping[c] || c).join('');
+  const map = {
+    'А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H',
+    'О':'O','Р':'P','С':'C','Т':'T','У':'Y','Х':'X'
+  };
+  return String(text).toUpperCase().replace(/[^A-ZА-Я0-9]/g, '')
+    .split('').map(c => map[c] || c).join('');
 }
 
 function logLookup(ss, deviceId, raw, status, count = 0) {
   try {
     if (!ss) return;
-    let logSheet = ss.getSheetByName("LookupLog");
-    if (!logSheet) {
-      logSheet = ss.insertSheet("LookupLog");
-      logSheet.appendRow(["Timestamp", "DeviceID", "Plate", "Status", "Matches"]);
+    let log = ss.getSheetByName("LookupLog");
+    if (!log) {
+      log = ss.insertSheet("LookupLog");
+      log.appendRow(["Timestamp", "DeviceID", "RawPlate", "Status", "Matches"]);
     }
-    logSheet.appendRow([new Date(), deviceId, raw, status, count]);
+    log.appendRow([new Date(), deviceId, raw, status, count]);
   } catch (e) {}
 }
 

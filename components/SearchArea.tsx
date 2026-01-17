@@ -1,83 +1,124 @@
 
-import React, { useState, KeyboardEvent, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { isValidPlate } from '../utils/normalize';
+import { fitPlateText } from '../utils/typography';
 
 interface SearchAreaProps {
   onSearch: (plate: string) => void;
   onClear: () => void;
   isLoading: boolean;
+  isCompact: boolean;
 }
 
-const SearchArea: React.FC<SearchAreaProps> = ({ onSearch, onClear, isLoading }) => {
-  const [inputValue, setInputValue] = useState('');
+const SearchArea: React.FC<SearchAreaProps> = ({ onSearch, onClear, isLoading, isCompact }) => {
+  const [val, setVal] = useState('');
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [dynamicFontSize, setDynamicFontSize] = useState(64);
+  
+  const inputContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const validation = useMemo(() => isValidPlate(val), [val]);
+  const hasVal = val.trim().length > 0;
 
-  const validation = useMemo(() => isValidPlate(inputValue), [inputValue]);
-  const hasInput = inputValue.trim().length > 0;
+  // Monitor container size for typography calculations
+  useEffect(() => {
+    if (!inputContainerRef.current) return;
 
-  const handleSearch = () => {
-    if (validation.valid && !isLoading) {
-      onSearch(inputValue);
-    }
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setContainerSize({ width, height });
+      }
+    });
+
+    observer.observe(inputContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Re-calculate font size on value change, size change, or mode change
+  useEffect(() => {
+    const size = fitPlateText({
+      containerWidth: containerSize.width,
+      containerHeight: containerSize.height,
+      textLength: val.length,
+      isCompact
+    });
+    setDynamicFontSize(size);
+  }, [val, containerSize, isCompact]);
+
+  const triggerSearch = () => {
+    if (validation.valid && !isLoading) onSearch(val);
   };
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [isLoading]);
+    const focusTimer = setInterval(() => {
+      if (document.activeElement?.tagName !== 'INPUT') inputRef.current?.focus();
+    }, 5000);
+    return () => clearInterval(focusTimer);
+  }, []);
 
   return (
-    <div className="bg-white border-b-[12px] border-indigo-50 p-6 md:p-10 shadow-2xl relative z-10">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex justify-between items-end px-4">
-          <label className={`text-sm font-black uppercase tracking-[0.2em] transition-colors duration-300 ${!validation.valid && hasInput ? 'text-rose-600' : 'text-indigo-400'}`}>
-            {!validation.valid && hasInput ? (validation.error || '⚠ ОШИБКА') : 'Госномер автомобиля'}
-          </label>
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">РУ | СНГ | ЕВРО</span>
+    <div className={`w-full flex flex-col ${isCompact ? 'gap-3' : 'gap-6'}`}>
+      <div className="flex justify-between items-end">
+        <label className={`text-[11px] font-black uppercase tracking-widest ${!validation.valid && hasVal ? 'text-rose-600' : 'text-slate-400'}`}>
+          {!validation.valid && hasVal ? validation.error : 'Введите госномер'}
+        </label>
+        <div className={`px-2 py-0.5 rounded-full text-[9px] font-black ${validation.valid ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+          {validation.valid ? 'OK' : '...'}
         </div>
+      </div>
+
+      {/* Container used for measurement and layout anchor */}
+      <div 
+        ref={inputContainerRef}
+        className={`relative group w-full ${isCompact ? 'h-24' : 'h-32 md:h-44'}`}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && triggerSearch()}
+          placeholder="A000AA77"
+          disabled={isLoading}
+          style={{ 
+            fontSize: `${dynamicFontSize}px`,
+            lineHeight: '1',
+            paddingInline: 'clamp(24px, 3vw, 40px)'
+          }}
+          className={`w-full h-full font-black text-center uppercase tracking-tighter outline-none rounded-2xl border-4 transition-all
+            license-plate-font flex items-center justify-center
+            ${isLoading ? 'bg-slate-50 border-slate-100 text-slate-300' 
+              : !validation.valid && hasVal ? 'bg-rose-50 border-rose-200 text-rose-900 animate-shake'
+              : validation.valid ? 'bg-emerald-50 border-emerald-500 text-indigo-950 shadow-inner'
+              : 'bg-slate-50 border-slate-200 focus:border-indigo-600 focus:bg-white'
+            }`}
+        />
         
-        <div className="relative group">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="A 000 AA 00"
-            disabled={isLoading}
-            autoComplete="off"
-            className={`w-full font-black text-center uppercase tracking-tighter transition-all duration-300 outline-none rounded-[2.5rem] border-[8px]
-              license-plate-font text-[clamp(2.5rem,15vw,9rem)] py-6 md:py-10 px-6
-              ${isLoading 
-                ? 'bg-slate-50 border-indigo-100 text-indigo-200' 
-                : !validation.valid && hasInput
-                  ? 'bg-rose-50 border-rose-400 text-rose-950 animate-shake'
-                  : validation.valid && hasInput
-                    ? 'bg-emerald-50 border-emerald-500 text-indigo-950 shadow-[0_15px_40px_rgba(16,185,129,0.15)]'
-                    : 'bg-white border-indigo-100 focus:border-indigo-600 text-indigo-950'
-              }`}
-          />
-        </div>
-        
-        <div className="grid grid-cols-4 gap-6 md:gap-10">
-          <button
-            onClick={() => { setInputValue(''); onClear(); }}
-            disabled={isLoading || !inputValue}
-            className="col-span-1 h-24 md:h-36 bg-slate-100 text-slate-500 text-xl font-black rounded-[2.5rem] active:scale-90 transition-all uppercase border-b-[8px] border-slate-300 shadow-lg disabled:opacity-20"
-          >
-            СБРОС
-          </button>
-          <button
-            onClick={handleSearch}
-            disabled={isLoading || !validation.valid}
-            className={`col-span-3 h-24 md:h-36 text-white text-2xl md:text-3xl font-black rounded-[2.5rem] transition-all uppercase tracking-[0.3em] active:scale-[0.97] border-b-[8px]
-              ${isLoading || !validation.valid 
-                ? 'bg-slate-200 border-slate-300 text-slate-400' 
-                : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-900 shadow-[0_20px_50px_rgba(79,70,229,0.4)]'
-              }`}
-          >
-            {isLoading ? 'ИЩЕМ...' : 'ПРОВЕРИТЬ'}
-          </button>
-        </div>
+        {/* Hidden measurement element to assist if needed, though math is preferred for JetBrains Mono */}
+        <span className="sr-only" aria-hidden="true">{val}</span>
+      </div>
+
+      <div className={`grid grid-cols-4 gap-3 ${isCompact ? 'h-12' : 'h-16 md:h-20'}`}>
+        <button
+          onClick={() => { setVal(''); onClear(); }}
+          className="bg-slate-100 text-slate-500 font-black rounded-xl border-b-4 border-slate-300 active:translate-y-0.5 active:border-b-0 transition-all uppercase text-[10px]"
+        >
+          СБРОС
+        </button>
+        <button
+          onClick={triggerSearch}
+          disabled={isLoading || !validation.valid}
+          className={`col-span-3 text-white font-black rounded-xl border-b-4 transition-all uppercase tracking-widest
+            active:translate-y-0.5 active:border-b-0
+            ${isLoading || !validation.valid 
+              ? 'bg-slate-200 border-slate-300 text-slate-400' 
+              : 'bg-indigo-600 border-indigo-900 text-lg'
+            }`}
+        >
+          {isLoading ? '...' : 'ПРОВЕРИТЬ'}
+        </button>
       </div>
     </div>
   );
